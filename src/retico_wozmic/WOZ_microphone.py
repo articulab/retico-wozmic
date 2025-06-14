@@ -11,6 +11,7 @@ import keyboard
 import pyaudio
 import wave
 import scipy.io.wavfile as wav
+import os
 
 import retico_core
 from retico_core.audio import AudioIU, MicrophoneModule
@@ -36,6 +37,10 @@ class WOZMicrophoneModule(MicrophoneModule):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        if not os.path.isabs(file):
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            file = os.path.join(base_dir, file)
+            
         self.file = file
         self.frame_length = frame_length
         self._run_thread_active = False
