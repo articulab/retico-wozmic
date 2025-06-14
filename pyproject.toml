@@ -12,7 +12,7 @@ version = "0.0.1"
 requires-python = ">=3.11.7"
 dependencies = [
     "keyboard",
-    "wave",
+    "wave==0.0.2",
     "scipy",
     "retico-core @ git+https://github.com/articulab/retico-core.git",
 ]
