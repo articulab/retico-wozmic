@@ -1,2 +1,3 @@
 import retico_wozmic
-from retico_wozmic.WOZ_microphone import WOZMicrophoneModule, WOZMicrophoneModule_2
+from retico_wozmic.WOZ_microphone import WOZMicrophoneModule
+from retico_wozmic.WOZ_microphone_3 import WOZMicrophoneModule3

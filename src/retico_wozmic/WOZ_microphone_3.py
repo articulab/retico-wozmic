@@ -7,8 +7,9 @@ which captures audio signal from the microphone and chunks the audio signal into
 """
 
 import queue
-import keyboard
+import keyboard as keyb
 import librosa
+from pynput import keyboard
 import pyaudio
 import wave
 import scipy.io.wavfile as wav
@@ -16,9 +17,10 @@ import os
 
 import retico_core
 from retico_core.audio import AudioIU, MicrophoneModule
+import soundfile as sf
 
 
-class WOZMicrophoneModule(MicrophoneModule):
+class WOZMicrophoneModule3(MicrophoneModule):
     """A modules overrides the MicrophoneModule which captures audio signal from the microphone and chunks the audio signal into AudioIUs.
     The addition of this module is the introduction of the push-to-talk capacity : the microphone's audio signal is captured only while the M key is pressed.
     """
@@ -77,10 +79,10 @@ class WOZMicrophoneModule(MicrophoneModule):
         self.terminal_logger.info(
             "load sound",
             debug=True,
-            frame_rate=frame_rate,
+            rate_audio_file=frame_rate,
+            rate_module=self.rate,
             n_channels=n_channels,
             sample_width=sample_width,
-            rate=rate,
             chunk_size=chunk_size,
             total_time=total_time,
         )
@@ -90,9 +92,20 @@ class WOZMicrophoneModule(MicrophoneModule):
             sample = audio_data[(chunk_size * sample_width) * read_cpt : (chunk_size * sample_width) * (read_cpt + 1)]
             read_cpt += 1
             output_iu = self.create_iu(
-                audio=sample, raw_audio=sample, nframes=chunk_size, rate=rate, sample_width=sample_width
+                audio=sample, raw_audio=sample, nframes=chunk_size, rate=self.rate, sample_width=sample_width
             )
             self.list_ius.append((output_iu, retico_core.UpdateType.ADD))
+
+        # init "m" key listener
+        self.m_listener = keyboard.Listener(on_press=self.on_press)
+        self.m_listener.start()
+
+    def on_press(self, key):
+        try:
+            if key.char == "m":
+                self.play_audio = True
+        except AttributeError:
+            pass
 
     def callback(self, in_data, frame_count, time_info, status):
         """The callback function that gets called by pyaudio. Stores silence
@@ -106,8 +119,6 @@ class WOZMicrophoneModule(MicrophoneModule):
                 microphone
             frame_count (int): The number of frames that are stored in in_data
         """
-        if keyboard.is_pressed("m"):
-            self.play_audio = True
         if self.play_audio is True:
             in_data = self.list_ius[self.cpt][0].raw_audio
             if self.cpt == len(self.list_ius) - 1:
@@ -146,3 +157,4 @@ class WOZMicrophoneModule(MicrophoneModule):
             self.stream.close()
             self.stream = None
         self.audio_buffer = queue.Queue()
+        self.m_listener.stop()
