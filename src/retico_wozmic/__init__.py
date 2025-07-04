@@ -1,2 +1,2 @@
 import retico_wozmic
-from src.retico_wozmic.WOZ_microphone import WOZMicrophoneModule
+from retico_wozmic.WOZ_microphone import WOZMicrophoneModule
