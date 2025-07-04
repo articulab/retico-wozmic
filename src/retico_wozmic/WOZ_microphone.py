@@ -35,6 +35,7 @@ class WOZMicrophoneModule(MicrophoneModule):
         self,
         file: str = "audios/hello16k.wav",
         frame_length: float = 0.02,
+        key: str = "m",
         hotkey_library: str = "pynput",
         **kwargs,
     ):
@@ -62,6 +63,7 @@ class WOZMicrophoneModule(MicrophoneModule):
         self.cpt = 0
         self.play_audio = False
         self.hotkey_library = hotkey_library
+        self.key = key
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
@@ -106,14 +108,14 @@ class WOZMicrophoneModule(MicrophoneModule):
             )
             self.list_ius.append((output_iu, retico_core.UpdateType.ADD))
 
-        # init "m" key listener
+        # init self.key key listener
         if self.hotkey_library == "pynput":
             self.m_listener = keyboard.Listener(on_press=self.on_press)
             self.m_listener.start()
 
     def on_press(self, key):
         try:
-            if key.char == "m":
+            if key.char == self.key:
                 self.play_audio = True
         except AttributeError:
             pass
@@ -130,7 +132,7 @@ class WOZMicrophoneModule(MicrophoneModule):
                 microphone
             frame_count (int): The number of frames that are stored in in_data
         """
-        if self.hotkey_library == "keyboard" and keyb.is_pressed("m"):
+        if self.hotkey_library == "keyboard" and keyb.is_pressed(self.key):
             self.play_audio = True
         if self.play_audio is True:
             in_data = self.list_ius[self.cpt][0].raw_audio
