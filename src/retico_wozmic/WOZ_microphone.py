@@ -7,15 +7,15 @@ which captures audio signal from the microphone and chunks the audio signal into
 """
 
 import queue
-import keyboard
+import sys
+import keyboard as keyb
 import librosa
+from pynput import keyboard
 import pyaudio
-import wave
-import scipy.io.wavfile as wav
 import os
 
 import retico_core
-from retico_core.audio import AudioIU, MicrophoneModule
+from retico_core.audio import MicrophoneModule
 
 
 class WOZMicrophoneModule(MicrophoneModule):
@@ -33,11 +33,22 @@ class WOZMicrophoneModule(MicrophoneModule):
 
     def __init__(
         self,
-        file="audios/hello16k.wav",
-        frame_length=0.02,
+        file: str = "audios/hello16k.wav",
+        frame_length: float = 0.02,
+        hotkey_library: str = "pynput",
         **kwargs,
     ):
         super().__init__(**kwargs)
+
+        # Check OS to set rate
+        computer_os = sys.platform
+        self.terminal_logger.debug(f"OS : {computer_os}", cl="trace")
+        if sys.platform.startswith("linux"):
+            self.terminal_logger.debug(f"OS is LINUX, forcing to use 48k audio rate", cl="trace")
+            file = "audios/hello48k.wav"
+            self.rate = 48000
+
+        # Convert relative to absolute path
         if not os.path.isabs(file):
             base_dir = os.path.dirname(os.path.abspath(__file__))
             file = os.path.join(base_dir, file)
@@ -50,6 +61,7 @@ class WOZMicrophoneModule(MicrophoneModule):
         self.silence_ius = []
         self.cpt = 0
         self.play_audio = False
+        self.hotkey_library = hotkey_library
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
@@ -74,15 +86,15 @@ class WOZMicrophoneModule(MicrophoneModule):
         chunk_size = round(self.rate * n_channels * self.frame_length)
         max_cpt = int(len(audio_data) / (chunk_size * sample_width))
         total_time = len(audio_data) / (self.rate * n_channels * sample_width)
-        self.terminal_logger.info(
+        self.terminal_logger.debug(
             "load sound",
-            debug=True,
-            frame_rate=frame_rate,
+            rate_audio_file=frame_rate,
+            rate_module=self.rate,
             n_channels=n_channels,
             sample_width=sample_width,
-            rate=rate,
             chunk_size=chunk_size,
             total_time=total_time,
+            cl="trace",
         )
         self.list_ius = []
         read_cpt = 0
@@ -90,9 +102,21 @@ class WOZMicrophoneModule(MicrophoneModule):
             sample = audio_data[(chunk_size * sample_width) * read_cpt : (chunk_size * sample_width) * (read_cpt + 1)]
             read_cpt += 1
             output_iu = self.create_iu(
-                audio=sample, raw_audio=sample, nframes=chunk_size, rate=rate, sample_width=sample_width
+                audio=sample, raw_audio=sample, nframes=chunk_size, rate=self.rate, sample_width=sample_width
             )
             self.list_ius.append((output_iu, retico_core.UpdateType.ADD))
+
+        # init "m" key listener
+        if self.hotkey_library == "pynput":
+            self.m_listener = keyboard.Listener(on_press=self.on_press)
+            self.m_listener.start()
+
+    def on_press(self, key):
+        try:
+            if key.char == "m":
+                self.play_audio = True
+        except AttributeError:
+            pass
 
     def callback(self, in_data, frame_count, time_info, status):
         """The callback function that gets called by pyaudio. Stores silence
@@ -106,7 +130,7 @@ class WOZMicrophoneModule(MicrophoneModule):
                 microphone
             frame_count (int): The number of frames that are stored in in_data
         """
-        if keyboard.is_pressed("m"):
+        if self.hotkey_library == "keyboard" and keyb.is_pressed("m"):
             self.play_audio = True
         if self.play_audio is True:
             in_data = self.list_ius[self.cpt][0].raw_audio
@@ -146,3 +170,5 @@ class WOZMicrophoneModule(MicrophoneModule):
             self.stream.close()
             self.stream = None
         self.audio_buffer = queue.Queue()
+        if self.hotkey_library == "pynput":
+            self.m_listener.stop()
